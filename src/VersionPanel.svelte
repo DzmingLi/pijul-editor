@@ -2,6 +2,7 @@
   export interface DiffLine { type: 'add' | 'del' | 'same'; text: string }
   export interface VersionInfo { id: number; change_hash: string; message: string; created_at: string; unrecordable?: boolean }
   export interface VersionDiff { hunks: { lines: { kind: string; content: string }[] }[] }
+  export interface ChangeLine { kind: string; content: string }
 
   let {
     currentDiffLines = [],
@@ -11,6 +12,7 @@
     onRecord,
     onSelectVersion,
     onUnrecord,
+    onFetchChangeDetail,
     selectedVersionId = null,
     selectedVersionDiff = null,
   }: {
@@ -21,6 +23,7 @@
     onRecord: (message: string) => void;
     onSelectVersion?: (v: VersionInfo) => void;
     onUnrecord?: (v: VersionInfo) => void;
+    onFetchChangeDetail?: (hash: string) => Promise<{ message: string; lines: ChangeLine[] }>;
     selectedVersionId?: number | null;
     selectedVersionDiff?: VersionDiff | null;
   } = $props();
@@ -28,6 +31,28 @@
   let recordMessage = $state('');
   let addCount = $derived(currentDiffLines.filter(l => l.type === 'add').length);
   let delCount = $derived(currentDiffLines.filter(l => l.type === 'del').length);
+  let selectedChangeLines = $state<ChangeLine[]>([]);
+  let loadingChange = $state(false);
+
+  async function selectVersion(v: VersionInfo) {
+    if (selectedVersionId === v.id) {
+      selectedVersionId = null;
+      selectedChangeLines = [];
+      return;
+    }
+    selectedVersionId = v.id;
+    selectedChangeLines = [];
+    onSelectVersion?.(v);
+
+    if (onFetchChangeDetail) {
+      loadingChange = true;
+      try {
+        const detail = await onFetchChangeDetail(v.change_hash);
+        selectedChangeLines = detail.lines;
+      } catch { /* */ }
+      loadingChange = false;
+    }
+  }
 
   function doRecord() {
     onRecord(recordMessage.trim() || 'update');
@@ -78,7 +103,7 @@
           <button
             class="vp-item"
             class:selected={selectedVersionId === v.id}
-            onclick={() => onSelectVersion?.(v)}
+            onclick={() => selectVersion(v)}
           >
             <span class="vp-msg">{v.message}</span>
             <span class="vp-meta">
@@ -93,7 +118,15 @@
       {/if}
     </div>
 
-    {#if selectedVersionDiff}
+    {#if loadingChange}
+      <p class="vp-empty">加载中...</p>
+    {:else if selectedChangeLines.length > 0}
+      <div class="vp-version-diff">
+        <pre class="vp-diff">{#each selectedChangeLines as line}{#if line.kind === 'add'}<span class="line-add">+{line.content}</span>
+{:else}<span class="line-del">-{line.content}</span>
+{/if}{/each}</pre>
+      </div>
+    {:else if selectedVersionDiff}
       <div class="vp-version-diff">
         <pre class="vp-diff">{#each selectedVersionDiff.hunks as hunk}{#each hunk.lines as line}{#if line.kind === 'add'}<span class="line-add">+{line.content}</span>
 {:else if line.kind === 'remove'}<span class="line-del">-{line.content}</span>
