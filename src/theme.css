@@ -1,0 +1,33 @@
+/* pijul-editor default theme — import this or define your own CSS variables */
+:root {
+  --font-serif: "Noto Serif", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+  --font-sans: "Noto Sans", "Noto Sans SC", "Source Han Sans SC", "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Source Code Pro", Consolas, monospace;
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.54);
+  --text-hint: rgba(0, 0, 0, 0.38);
+  --bg-page: #f8f4ee;
+  --bg-white: #ffffff;
+  --bg-gray: #f5f5f5;
+  --bg-hover: rgba(0, 0, 0, 0.03);
+  --accent: #5f9b65;
+  --accent-hover: #4a8a50;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
+  --link: #5f9b65;
+}
+
+[data-theme="dark"] {
+  --text-primary: rgba(255, 255, 255, 0.87);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-hint: rgba(255, 255, 255, 0.38);
+  --bg-page: #1a1a1e;
+  --bg-white: #242428;
+  --bg-gray: #2a2a2e;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --accent: #7ab87f;
+  --accent-hover: #8eca93;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --link: #7ab87f;
+}

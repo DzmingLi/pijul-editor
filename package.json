@@ -13,7 +13,8 @@
     "./ProseEditorBase.svelte": "./src/ProseEditorBase.svelte",
     "./TypstEditor.svelte": "./src/TypstEditor.svelte",
     "./MarkdownEditor.svelte": "./src/MarkdownEditor.svelte",
-    "./ChannelPanel.svelte": "./src/ChannelPanel.svelte"
+    "./ChannelPanel.svelte": "./src/ChannelPanel.svelte",
+    "./theme.css": "./src/theme.css"
   },
   "files": ["src"],
   "peerDependencies": {
