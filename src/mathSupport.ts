@@ -67,13 +67,15 @@ export class MathInlineNodeView implements NodeView {
   private _inputEl: HTMLInputElement | null = null;
   private _schema: Schema;
   private _renderEndpoint: string;
+  private _mathPlaceholder: string;
 
-  constructor(node: PNode, view: EditorView, getPos: any, schema: Schema, renderEndpoint: string) {
+  constructor(node: PNode, view: EditorView, getPos: any, schema: Schema, renderEndpoint: string, mathPlaceholder = '公式…') {
     this._view = view;
     this._getPos = getPos;
     this._formula = node.attrs.formula ?? '';
     this._schema = schema;
     this._renderEndpoint = renderEndpoint;
+    this._mathPlaceholder = mathPlaceholder;
 
     this.dom = document.createElement('span');
     this.dom.className = 'typst-math-inline-view';
@@ -124,7 +126,7 @@ export class MathInlineNodeView implements NodeView {
     input.type = 'text';
     input.className = 'math-inline-input';
     input.value = this._formula;
-    input.placeholder = '公式…';
+    input.placeholder = this._mathPlaceholder;
 
     const rect = this.dom.getBoundingClientRect();
     const left = Math.min(rect.left, window.innerWidth - 220);
@@ -367,21 +369,21 @@ export const mathNodeSpecs = {
 };
 
 // ── Helpers for creating node views bound to a specific schema + endpoint ────
-export function createMathNodeViews(schema: Schema, renderEndpoint: string) {
+export function createMathNodeViews(schema: Schema, renderEndpoint: string, mathPlaceholder?: string) {
   return {
     math_inline: (node: PNode, view: EditorView, getPos: any) =>
-      new MathInlineNodeView(node, view, getPos, schema, renderEndpoint),
+      new MathInlineNodeView(node, view, getPos, schema, renderEndpoint, mathPlaceholder),
     math_block: (node: PNode, view: EditorView, getPos: any) =>
       new MathBlockNodeView(node, view, getPos, schema, renderEndpoint),
   };
 }
 
 // ── Math toolbar buttons ─────────────────────────────────────────────────────
-export function createMathToolbarItems(schema: Schema) {
+export function createMathToolbarItems(schema: Schema, locale?: { inlineMath?: string; blockMath?: string }) {
   return [
     {
       icon: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><text x="2" y="10" font-size="9" font-family="serif" fill="currentColor" stroke="none">∑</text><line x1="9" y1="4" x2="13" y2="4"/><line x1="9" y1="7" x2="13" y2="7"/><line x1="9" y1="10" x2="13" y2="10"/></svg>',
-      title: '插入行内公式 ($…$)',
+      title: locale?.inlineMath ?? '插入行内公式 ($…$)',
       run(view: EditorView) {
         const { state, dispatch } = view;
         const node = schema.nodes.math_inline.create({ formula: '' });
@@ -390,7 +392,7 @@ export function createMathToolbarItems(schema: Schema) {
     },
     {
       icon: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="1" y="3" width="12" height="8" rx="1"/><text x="4" y="10" font-size="7" font-family="serif" fill="currentColor" stroke="none">∫</text></svg>',
-      title: '插入块级公式 ($$…$$)',
+      title: locale?.blockMath ?? '插入块级公式 ($$…$$)',
       run(view: EditorView) {
         const { state, dispatch } = view;
         const node = schema.nodes.math_block.create(null, []);

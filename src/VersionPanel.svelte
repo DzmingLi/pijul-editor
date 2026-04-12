@@ -12,21 +12,14 @@
     record: string;
   }
 
-  const defaultLabels: VersionPanelLabels = {
-    diff: 'Diff',
-    noChanges: '无修改',
-    history: '历史',
-    noHistory: '暂无记录',
-    loading: '...',
-    recordPlaceholder: 'Record message...',
-    record: 'Record',
-  };
+  import { getLocale } from './i18n/index';
 
   let {
     currentDiffLines = [],
     versions = [],
     loadingHistory = false,
     recording = false,
+    locale = 'zh',
     onRecord,
     onUnrecord,
     onFetchDiff,
@@ -36,13 +29,15 @@
     versions: VersionInfo[];
     loadingHistory?: boolean;
     recording?: boolean;
+    locale?: string;
     onRecord: (message: string) => void;
     onUnrecord?: (v: VersionInfo) => void;
     onFetchDiff?: (v: VersionInfo) => Promise<DiffLine[]>;
     labels?: Partial<VersionPanelLabels>;
   } = $props();
 
-  let labels = $derived({ ...defaultLabels, ...userLabels });
+  let i = $derived(getLocale(locale));
+  let labels = $derived({ ...i.version, ...userLabels });
 
   let recordMessage = $state('');
   let addCount = $derived(currentDiffLines.filter(l => l.type === 'add').length);
@@ -70,7 +65,7 @@
         selectedDiffLines = await onFetchDiff(v);
       } catch (e: any) {
         console.error('[VersionPanel] onFetchDiff error:', e);
-        diffError = e?.message || '加载失败';
+        diffError = e?.message || i.version.loadFailed;
       }
       loadingDiff = false;
     }
@@ -143,7 +138,7 @@
     {#if selectedId !== null}
       <div class="vp-version-diff">
         <div class="vp-diff-header">
-          <span>变更内容</span>
+          <span>{i.version.changeDetails}</span>
           <button class="vp-diff-close" onclick={() => { selectedId = null; selectedDiffLines = []; diffError = ''; }}>×</button>
         </div>
         {#if loadingDiff}
@@ -156,7 +151,7 @@
 {:else}<span class="line-ctx"> {line.text}</span>
 {/if}{/each}</pre>
         {:else}
-          <p class="vp-empty">此变更无可显示的内容行</p>
+          <p class="vp-empty">{i.version.noContentLines}</p>
         {/if}
       </div>
     {/if}

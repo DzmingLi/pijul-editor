@@ -4,11 +4,14 @@
     is_dir: boolean;
   }
 
+  import { getLocale } from './i18n/index';
+
   let {
     files = [],
     activeFile = null,
     defaultExt = '.md',
     sortable = false,
+    locale = 'zh',
     onSelect,
     onCreate,
     onDelete,
@@ -18,11 +21,14 @@
     activeFile: string | null;
     defaultExt?: string;
     sortable?: boolean;
+    locale?: string;
     onSelect: (path: string) => void;
     onCreate: (path: string) => Promise<void>;
     onDelete?: (path: string) => Promise<void>;
     onReorder?: (paths: string[]) => Promise<void>;
   } = $props();
+
+  let i = $derived(getLocale(locale));
 
   let showNewFile = $state(false);
   let newFileName = $state('');
@@ -53,7 +59,7 @@
   }
 
   async function doDelete(path: string) {
-    if (!onDelete || !confirm(`确定删除 ${fileLabel(path)}？`)) return;
+    if (!onDelete || !confirm(i.file.deleteConfirm(fileLabel(path)))) return;
     try { await onDelete(path); } catch { /* */ }
   }
 
@@ -120,7 +126,7 @@
         {/if}
         <span class="fp-name">{fileLabel(f.path)}</span>
         {#if onDelete}
-          <button class="fp-delete" onclick={(e) => { e.stopPropagation(); doDelete(f.path); }} title="删除">×</button>
+          <button class="fp-delete" onclick={(e) => { e.stopPropagation(); doDelete(f.path); }} title={i.file.delete}>×</button>
         {/if}
       </div>
     {/each}
@@ -134,7 +140,7 @@
         />
       </div>
     {:else}
-      <button class="fp-add" onclick={() => { showNewFile = true; }}>+ 新文件</button>
+      <button class="fp-add" onclick={() => { showNewFile = true; }}>{i.file.newFile}</button>
     {/if}
   </div>
 </div>

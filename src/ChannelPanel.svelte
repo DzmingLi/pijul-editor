@@ -11,10 +11,13 @@
     role: string;
   }
 
-  let { currentChannel, channels, currentUserDid = '', onChannelChange, fetchCollaborators, doInvite: doInviteApi, doRemove: doRemoveApi, fetchDiff, doApply: doApplyApi }: {
+  import { getLocale } from './i18n/index';
+
+  let { currentChannel, channels, currentUserDid = '', locale = 'zh', onChannelChange, fetchCollaborators, doInvite: doInviteApi, doRemove: doRemoveApi, fetchDiff, doApply: doApplyApi }: {
     currentChannel: string;
     channels: string[];
     currentUserDid?: string;
+    locale?: string;
     onChannelChange: (ch: string) => void;
     fetchCollaborators: () => Promise<CollabItem[]>;
     doInvite: (identifier: string) => Promise<void>;
@@ -22,6 +25,8 @@
     fetchDiff: (target: string, current: string) => Promise<ChannelDiffResult>;
     doApply: (targetChannel: string, sourceChannel: string, hash: string) => Promise<void>;
   } = $props();
+
+  let i = $derived(getLocale(locale));
 
   let collaborators = $state<CollabItem[]>([]);
   let inviteId = $state('');
@@ -55,7 +60,7 @@
   }
 
   async function doRemove(did: string) {
-    if (!confirm('确定移除此协作者？')) return;
+    if (!confirm(i.channel.confirmRemove)) return;
     try {
       await doRemoveApi(did);
       await loadCollaborators();
@@ -93,11 +98,11 @@
 </script>
 
 <div class="channel-panel">
-  <h3>协作</h3>
+  <h3>{i.channel.title}</h3>
 
   <!-- Channel selector -->
   <div class="section">
-    <label class="section-label">当前 Channel</label>
+    <label class="section-label">{i.channel.currentChannel}</label>
     <select
       class="channel-select"
       value={currentChannel}
@@ -111,7 +116,7 @@
 
   <!-- Collaborators -->
   <div class="section">
-    <label class="section-label">协作者</label>
+    <label class="section-label">{i.channel.collaborators}</label>
     <div class="collab-list">
       {#each collaborators as c (c.user_did)}
         <div class="collab-item">
@@ -121,7 +126,7 @@
           <span class="collab-role">{c.role}</span>
           <span class="collab-channel">{c.channel_name}</span>
           {#if isOwner && c.role !== 'owner'}
-            <button class="remove-btn" onclick={() => doRemove(c.user_did)} title="移除">×</button>
+            <button class="remove-btn" onclick={() => doRemove(c.user_did)} title={i.channel.remove}>×</button>
           {/if}
         </div>
       {/each}
@@ -131,12 +136,12 @@
         <input
           type="text"
           class="invite-input"
-          placeholder="handle 或 did:plc:..."
+          placeholder={i.channel.handlePlaceholder}
           bind:value={inviteId}
           onkeydown={(e) => { if (e.key === 'Enter') doInvite(); }}
         />
         <button class="invite-btn" onclick={doInvite} disabled={inviting || !inviteId.trim()}>
-          {inviting ? '...' : '邀请'}
+          {inviting ? i.channel.inviting : i.channel.invite}
         </button>
       </div>
     {/if}
@@ -144,25 +149,25 @@
 
   <!-- Channel diff -->
   <div class="section">
-    <label class="section-label">比较 Channel</label>
+    <label class="section-label">{i.channel.compareChannel}</label>
     <select class="channel-select" value={diffTarget} onchange={(e) => loadDiff((e.target as HTMLSelectElement).value)}>
-      <option value="">选择...</option>
+      <option value="">{i.channel.selectChannel}</option>
       {#each channels.filter(ch => ch !== currentChannel) as ch}
         <option value={ch}>{ch}</option>
       {/each}
     </select>
 
     {#if diffLoading}
-      <p class="meta">加载中...</p>
+      <p class="meta">{i.channel.loading}</p>
     {:else if diffResult}
       {#if diffResult.only_in_a.length === 0 && diffResult.only_in_b.length === 0}
-        <p class="meta">两个 channel 完全同步</p>
+        <p class="meta">{i.channel.fullySynced}</p>
       {:else}
         {#if diffResult.only_in_a.length > 0}
           <div class="diff-section">
             <div class="diff-header">
-              <span>仅在 {diffTarget} ({diffResult.only_in_a.length})</span>
-              <button class="apply-all-btn" onclick={doApplyAll}>全部应用</button>
+              <span>{i.channel.onlyIn(diffTarget)} ({diffResult.only_in_a.length})</span>
+              <button class="apply-all-btn" onclick={doApplyAll}>{i.channel.applyAll}</button>
             </div>
             {#each diffResult.only_in_a as hash}
               <div class="diff-change">
@@ -172,7 +177,7 @@
                   onclick={() => doApply(hash)}
                   disabled={applyingHash === hash}
                 >
-                  {applyingHash === hash ? '...' : '应用'}
+                  {applyingHash === hash ? i.channel.applying : i.channel.apply}
                 </button>
               </div>
             {/each}
@@ -180,7 +185,7 @@
         {/if}
         {#if diffResult.only_in_b.length > 0}
           <div class="diff-section">
-            <span class="diff-label">仅在 {currentChannel} ({diffResult.only_in_b.length})</span>
+            <span class="diff-label">{i.channel.onlyIn(currentChannel)} ({diffResult.only_in_b.length})</span>
           </div>
         {/if}
       {/if}

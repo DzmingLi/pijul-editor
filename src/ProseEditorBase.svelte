@@ -24,6 +24,8 @@
   import { wrapInList } from 'prosemirror-schema-list';
   import type { Schema as SchemaType } from 'prosemirror-model';
 
+  import { getLocale, type Locale } from './i18n/index';
+
   let {
     value = $bindable(''),
     placeholder = '',
@@ -36,6 +38,7 @@
     headingPrefixes = ['', '', ''] as [string, string, string],
     toolbarItems = [] as ToolbarItem[],
     onImageUpload,
+    locale = 'zh',
   }: {
     value: string;
     placeholder?: string;
@@ -48,7 +51,10 @@
     headingPrefixes?: [string, string, string];
     toolbarItems?: ToolbarItem[];
     onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>;
+    locale?: string;
   } = $props();
+
+  let i = $derived(getLocale(locale));
 
   let container: HTMLDivElement;
   let view: EditorView | null = null;
@@ -343,10 +349,10 @@
 <div class="md-editor-wrapper" class:fill-height={fillHeight}>
   <!-- ── Toolbar ── -->
   <div class="prose-toolbar" class:fill-height={fillHeight}>
-    <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); runCmd(undo); }} title="撤销 (Ctrl+Z)" disabled={!canUndo}>
+    <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); runCmd(undo); }} title={i.toolbar.undo} disabled={!canUndo}>
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 6.5a5 5 0 1 0 1.1-3"/><polyline points="1.5,1.5 1.5,5.5 5.5,5.5"/></svg>
     </button>
-    <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); runCmd(redo); }} title="重做 (Ctrl+Y)" disabled={!canRedo}>
+    <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); runCmd(redo); }} title={i.toolbar.redo} disabled={!canRedo}>
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11.5 6.5a5 5 0 1 1-1.1-3"/><polyline points="11.5,1.5 11.5,5.5 7.5,5.5"/></svg>
     </button>
 
@@ -355,30 +361,30 @@
     {#if schema.marks?.strong}
       <button class="tb-btn" class:active={boldActive}
         onmousedown={(e) => { e.preventDefault(); runCmd(toggleMark(schema.marks.strong)); }}
-        title="加粗 (Ctrl+B)"><b>B</b></button>
+        title={i.toolbar.bold}><b>B</b></button>
     {/if}
     {#if schema.marks?.em}
       <button class="tb-btn" class:active={italicActive}
         onmousedown={(e) => { e.preventDefault(); runCmd(toggleMark(schema.marks.em)); }}
-        title="斜体 (Ctrl+I)"><i>I</i></button>
+        title={i.toolbar.italic}><i>I</i></button>
     {/if}
     {#if schema.marks?.code}
       <button class="tb-btn" class:active={codeActive}
         onmousedown={(e) => { e.preventDefault(); runCmd(toggleMark(schema.marks.code)); }}
-        title="行内代码"><code>`</code></button>
+        title={i.toolbar.inlineCode}><code>`</code></button>
     {/if}
 
     {#if schema.nodes?.heading}
       <span class="tb-sep"></span>
       <button class="tb-btn" class:active={h1Active}
         onmousedown={(e) => { e.preventDefault(); runCmd(setBlockType(schema.nodes.heading, { level: 1 })); }}
-        title="一级标题">H1</button>
+        title={i.toolbar.h1}>H1</button>
       <button class="tb-btn" class:active={h2Active}
         onmousedown={(e) => { e.preventDefault(); runCmd(setBlockType(schema.nodes.heading, { level: 2 })); }}
-        title="二级标题">H2</button>
+        title={i.toolbar.h2}>H2</button>
       <button class="tb-btn" class:active={h3Active}
         onmousedown={(e) => { e.preventDefault(); runCmd(setBlockType(schema.nodes.heading, { level: 3 })); }}
-        title="三级标题">H3</button>
+        title={i.toolbar.h3}>H3</button>
     {/if}
 
     <span class="tb-sep"></span>
@@ -386,7 +392,7 @@
     {#if schema.nodes?.bullet_list}
       <button class="tb-btn"
         onmousedown={(e) => { e.preventDefault(); runCmd(wrapInList(schema.nodes.bullet_list)); }}
-        title="无序列表">
+        title={i.toolbar.bulletList}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
           <circle cx="2" cy="4" r="1.1"/><circle cx="2" cy="10" r="1.1"/>
           <rect x="5" y="3.3" width="8" height="1.4" rx="0.6"/>
@@ -397,7 +403,7 @@
     {#if schema.nodes?.ordered_list}
       <button class="tb-btn"
         onmousedown={(e) => { e.preventDefault(); runCmd(wrapInList(schema.nodes.ordered_list)); }}
-        title="有序列表">
+        title={i.toolbar.orderedList}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" font-size="5" font-family="monospace">
           <text x="1" y="5.5">1.</text><text x="1" y="11">2.</text>
           <rect x="6.5" y="3.3" width="6.5" height="1.4" rx="0.6"/>
@@ -408,7 +414,7 @@
     {#if schema.nodes?.blockquote}
       <button class="tb-btn"
         onmousedown={(e) => { e.preventDefault(); runCmd(wrapIn(schema.nodes.blockquote)); }}
-        title="引用">
+        title={i.toolbar.blockquote}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect x="2" y="2" width="2" height="10" rx="1" fill="currentColor" stroke="none"/>
           <line x1="6" y1="5" x2="12" y2="5"/><line x1="6" y1="9" x2="12" y2="9"/>
@@ -418,7 +424,7 @@
     {#if schema.nodes?.code_block}
       <button class="tb-btn"
         onmousedown={(e) => { e.preventDefault(); runCmd(setBlockType(schema.nodes.code_block)); }}
-        title="代码块">
+        title={i.toolbar.codeBlock}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5">
           <polyline points="4.5,4 1.5,7 4.5,10"/><polyline points="9.5,4 12.5,7 9.5,10"/>
           <line x1="8.5" y1="2" x2="5.5" y2="12"/>
@@ -426,7 +432,7 @@
       </button>
     {/if}
     {#if schema.nodes?.table}
-      <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); insertTable(); }} title="插入表格">
+      <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); insertTable(); }} title={i.toolbar.insertTable}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
           <rect x="1" y="2" width="12" height="10" rx="1"/>
           <line x1="1" y1="5.5" x2="13" y2="5.5"/>
@@ -438,7 +444,7 @@
     {/if}
 
     {#if onImageUpload && schema.nodes?.image}
-      <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); imageFileInput?.click(); }} title="插入图片">
+      <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); imageFileInput?.click(); }} title={i.toolbar.insertImage}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
           <rect x="1" y="2" width="12" height="10" rx="1.5"/>
           <circle cx="4.5" cy="5.5" r="1.2"/>
