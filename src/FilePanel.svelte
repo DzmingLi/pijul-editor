@@ -41,17 +41,16 @@
   let visibleFiles = $derived(files.filter(f => !f.is_dir));
 
   function fileLabel(path: string) {
-    return path.replace(/^chapters\//, '');
+    return path.replace(/^.*\//, '');
   }
 
   async function doCreate() {
     let name = newFileName.trim();
     if (!name || creating) return;
     if (!name.includes('.')) name += defaultExt;
-    const path = name.includes('/') ? name : `chapters/${name}`;
     creating = true;
     try {
-      await onCreate(path);
+      await onCreate(name);
       newFileName = '';
       showNewFile = false;
     } catch { /* */ }
