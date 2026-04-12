@@ -98,13 +98,16 @@
 <script lang="ts">
   import ProseEditorBase from './ProseEditorBase.svelte';
 
-  let { value = $bindable(''), placeholder = '', fillHeight = false, renderEndpoint = '/api/render/latex-snippet', onImageUpload }: {
-    value: string; placeholder?: string; fillHeight?: boolean; renderEndpoint?: string;
+  import { getLocale } from './i18n/index';
+
+  let { value = $bindable(''), placeholder = '', fillHeight = false, renderEndpoint = '/api/render/latex-snippet', locale = 'zh', onImageUpload }: {
+    value: string; placeholder?: string; fillHeight?: boolean; renderEndpoint?: string; locale?: string;
     onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>;
   } = $props();
 
-  const mathNodeViews = createMathNodeViews(mdSchema, renderEndpoint);
-  const mathToolbar = createMathToolbarItems(mdSchema);
+  let i = $derived(getLocale(locale));
+  const mathNodeViews = createMathNodeViews(mdSchema, renderEndpoint, i.math.placeholder);
+  const mathToolbar = createMathToolbarItems(mdSchema, i.toolbar);
 </script>
 
 <ProseEditorBase
@@ -118,6 +121,7 @@
   parse={parseMd}
   headingPrefixes={['# ', '## ', '### ']}
   toolbarItems={mathToolbar}
+  {locale}
   {onImageUpload}
 />
 

@@ -227,13 +227,16 @@
 <script lang="ts">
   import ProseEditorBase from './ProseEditorBase.svelte';
 
-  let { value = $bindable(''), placeholder = '', fillHeight = false, renderEndpoint = '/api/render/typst-snippet', onImageUpload }: {
-    value: string; placeholder?: string; fillHeight?: boolean; renderEndpoint?: string;
+  import { getLocale } from './i18n/index';
+
+  let { value = $bindable(''), placeholder = '', fillHeight = false, renderEndpoint = '/api/render/typst-snippet', locale = 'zh', onImageUpload }: {
+    value: string; placeholder?: string; fillHeight?: boolean; renderEndpoint?: string; locale?: string;
     onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>;
   } = $props();
 
-  const mathNodeViews = createMathNodeViews(typstSchema, renderEndpoint);
-  const mathToolbar = createMathToolbarItems(typstSchema);
+  let i = $derived(getLocale(locale));
+  const mathNodeViews = createMathNodeViews(typstSchema, renderEndpoint, i.math.placeholder);
+  const mathToolbar = createMathToolbarItems(typstSchema, i.toolbar);
 </script>
 
 <ProseEditorBase
@@ -247,6 +250,7 @@
   parse={parseTypst}
   headingPrefixes={['= ', '== ', '=== ']}
   toolbarItems={mathToolbar}
+  {locale}
   {onImageUpload}
 />
 
