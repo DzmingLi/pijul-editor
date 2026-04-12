@@ -15,6 +15,7 @@
     "./MarkdownEditor.svelte": "./src/MarkdownEditor.svelte",
     "./ChannelPanel.svelte": "./src/ChannelPanel.svelte",
     "./VersionPanel.svelte": "./src/VersionPanel.svelte",
+    "./FilePanel.svelte": "./src/FilePanel.svelte",
     "./theme.css": "./src/theme.css"
   },
   "files": ["src"],
