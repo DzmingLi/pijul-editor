@@ -51,22 +51,26 @@
   let selectedId = $state<number | null>(null);
   let selectedDiffLines = $state<DiffLine[]>([]);
   let loadingDiff = $state(false);
+  let diffError = $state('');
 
   async function selectVersion(v: VersionInfo) {
     if (selectedId === v.id) {
       selectedId = null;
       selectedDiffLines = [];
+      diffError = '';
       return;
     }
     selectedId = v.id;
     selectedDiffLines = [];
+    diffError = '';
 
     if (onFetchDiff) {
       loadingDiff = true;
       try {
         selectedDiffLines = await onFetchDiff(v);
-      } catch (e) {
+      } catch (e: any) {
         console.error('[VersionPanel] onFetchDiff error:', e);
+        diffError = e?.message || '加载失败';
       }
       loadingDiff = false;
     }
@@ -136,14 +140,24 @@
       {/if}
     </div>
 
-    {#if loadingDiff}
-      <p class="vp-empty">{labels.loading}</p>
-    {:else if selectedDiffLines.length > 0}
+    {#if selectedId !== null}
       <div class="vp-version-diff">
-        <pre class="vp-diff">{#each selectedDiffLines as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
+        <div class="vp-diff-header">
+          <span>变更内容</span>
+          <button class="vp-diff-close" onclick={() => { selectedId = null; selectedDiffLines = []; diffError = ''; }}>×</button>
+        </div>
+        {#if loadingDiff}
+          <p class="vp-empty">{labels.loading}</p>
+        {:else if diffError}
+          <p class="vp-empty vp-error">{diffError}</p>
+        {:else if selectedDiffLines.length > 0}
+          <pre class="vp-diff">{#each selectedDiffLines as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
 {:else if line.type === 'del'}<span class="line-del">-{line.text}</span>
 {:else}<span class="line-ctx"> {line.text}</span>
 {/if}{/each}</pre>
+        {:else}
+          <p class="vp-empty">此变更无可显示的内容行</p>
+        {/if}
       </div>
     {/if}
   </div>
@@ -251,10 +265,34 @@
   .vp-unrecord:hover { color: #cf222e; }
 
   .vp-version-diff {
-    max-height: 200px;
+    max-height: 300px;
     overflow-y: auto;
     border-top: 1px solid var(--border, #eee);
+    background: var(--bg-white, #fff);
   }
+  .vp-diff-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-hint, #999);
+    background: var(--bg-hover, #f8f8f8);
+    position: sticky;
+    top: 0;
+  }
+  .vp-diff-close {
+    background: none;
+    border: none;
+    color: var(--text-hint, #999);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+    line-height: 1;
+  }
+  .vp-diff-close:hover { color: #cf222e; }
+  .vp-error { color: #cf222e; }
 
   .vp-record {
     display: flex;
