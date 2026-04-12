@@ -53,7 +53,6 @@
   let loadingDiff = $state(false);
 
   async function selectVersion(v: VersionInfo) {
-    console.log('[VP] selectVersion called', v);
     if (selectedId === v.id) {
       selectedId = null;
       selectedDiffLines = [];
@@ -61,7 +60,6 @@
     }
     selectedId = v.id;
     selectedDiffLines = [];
-    console.log('[VP] onFetchDiff exists?', !!onFetchDiff);
 
     if (onFetchDiff) {
       loadingDiff = true;
