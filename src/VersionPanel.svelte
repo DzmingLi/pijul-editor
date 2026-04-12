@@ -296,19 +296,22 @@
 
   .vp-record {
     display: flex;
+    flex-direction: column;
     gap: 4px;
     padding: 8px;
     border-top: 1px solid var(--border, #e5e5e5);
     margin-top: auto;
   }
   .vp-input {
-    flex: 1;
+    width: 100%;
     padding: 5px 8px;
     border: 1px solid var(--border, #ddd);
     border-radius: 4px;
     font-size: 12px;
+    box-sizing: border-box;
   }
   .vp-btn {
+    width: 100%;
     padding: 5px 14px;
     border: 1px solid var(--accent, #5f9b65);
     border-radius: 4px;
