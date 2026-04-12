@@ -6,6 +6,7 @@
 
   interface CollabItem {
     user_did: string;
+    handle?: string | null;
     channel_name: string;
     role: string;
   }
@@ -16,14 +17,14 @@
     currentUserDid?: string;
     onChannelChange: (ch: string) => void;
     fetchCollaborators: () => Promise<CollabItem[]>;
-    doInvite: (did: string) => Promise<void>;
+    doInvite: (identifier: string) => Promise<void>;
     doRemove: (did: string) => Promise<void>;
     fetchDiff: (target: string, current: string) => Promise<ChannelDiffResult>;
     doApply: (targetChannel: string, sourceChannel: string, hash: string) => Promise<void>;
   } = $props();
 
   let collaborators = $state<CollabItem[]>([]);
-  let inviteDid = $state('');
+  let inviteId = $state('');
   let inviting = $state(false);
   let diffTarget = $state('');
   let diffResult = $state<ChannelDiffResult | null>(null);
@@ -43,11 +44,11 @@
   }
 
   async function doInvite() {
-    if (!inviteDid.trim() || inviting) return;
+    if (!inviteId.trim() || inviting) return;
     inviting = true;
     try {
-      await doInviteApi(inviteDid.trim());
-      inviteDid = '';
+      await doInviteApi(inviteId.trim());
+      inviteId = '';
       await loadCollaborators();
     } catch { /* */ }
     inviting = false;
@@ -115,7 +116,7 @@
       {#each collaborators as c (c.user_did)}
         <div class="collab-item">
           <span class="collab-did" title={c.user_did}>
-            {c.user_did.length > 24 ? c.user_did.slice(0, 12) + '…' + c.user_did.slice(-8) : c.user_did}
+            {c.handle || (c.user_did.length > 24 ? c.user_did.slice(0, 12) + '…' + c.user_did.slice(-8) : c.user_did)}
           </span>
           <span class="collab-role">{c.role}</span>
           <span class="collab-channel">{c.channel_name}</span>
@@ -130,11 +131,11 @@
         <input
           type="text"
           class="invite-input"
-          placeholder="did:plc:..."
-          bind:value={inviteDid}
+          placeholder="handle 或 did:plc:..."
+          bind:value={inviteId}
           onkeydown={(e) => { if (e.key === 'Enter') doInvite(); }}
         />
-        <button class="invite-btn" onclick={doInvite} disabled={inviting || !inviteDid.trim()}>
+        <button class="invite-btn" onclick={doInvite} disabled={inviting || !inviteId.trim()}>
           {inviting ? '...' : '邀请'}
         </button>
       </div>

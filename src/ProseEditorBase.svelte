@@ -35,6 +35,7 @@
     parse,
     headingPrefixes = ['', '', ''] as [string, string, string],
     toolbarItems = [] as ToolbarItem[],
+    onImageUpload,
   }: {
     value: string;
     placeholder?: string;
@@ -46,6 +47,7 @@
     parse: (text: string) => PNode;
     headingPrefixes?: [string, string, string];
     toolbarItems?: ToolbarItem[];
+    onImageUpload?: (file: File) => Promise<{ src: string; alt?: string }>;
   } = $props();
 
   let container: HTMLDivElement;
@@ -85,6 +87,27 @@
       table.create(null, [table_row.create(null, headerCells), table_row.create(null, bodyCells)])
     ));
     view.focus();
+  }
+
+  // ── Image upload ─────────────────────────────────────────────────────────
+  let imageFileInput: HTMLInputElement;
+
+  async function handleImageFile(file: File) {
+    if (!view || !onImageUpload || !schema.nodes.image) return;
+    try {
+      const result = await onImageUpload(file);
+      const node = schema.nodes.image.create({ src: result.src, alt: result.alt || file.name });
+      view.dispatch(view.state.tr.replaceSelectionWith(node));
+    } catch (e) {
+      console.error('[editor] image upload failed:', e);
+    }
+  }
+
+  function handleImageInputChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (file) handleImageFile(file);
+    input.value = '';
   }
 
   // ── Reactive toolbar state ────────────────────────────────────────────────
@@ -246,6 +269,26 @@
     view = new EditorView(container, {
       state: initialState,
       nodeViews: { ...headingSys.nodeViews, ...nodeViews },
+      handleDrop(view, event) {
+        if (!onImageUpload || !schema.nodes.image) return false;
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return false;
+        const imageFile = Array.from(files).find(f => f.type.startsWith('image/'));
+        if (!imageFile) return false;
+        event.preventDefault();
+        handleImageFile(imageFile);
+        return true;
+      },
+      handlePaste(view, event) {
+        if (!onImageUpload || !schema.nodes.image) return false;
+        const files = event.clipboardData?.files;
+        if (!files?.length) return false;
+        const imageFile = Array.from(files).find(f => f.type.startsWith('image/'));
+        if (!imageFile) return false;
+        event.preventDefault();
+        handleImageFile(imageFile);
+        return true;
+      },
       dispatchTransaction(tr: Transaction) {
         if (!view) return;
         const newState = view.state.apply(tr);
@@ -392,6 +435,17 @@
           <line x1="9" y1="2" x2="9" y2="12"/>
         </svg>
       </button>
+    {/if}
+
+    {#if onImageUpload && schema.nodes?.image}
+      <button class="tb-btn" onmousedown={(e) => { e.preventDefault(); imageFileInput?.click(); }} title="插入图片">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
+          <rect x="1" y="2" width="12" height="10" rx="1.5"/>
+          <circle cx="4.5" cy="5.5" r="1.2"/>
+          <polyline points="1,11 4.5,7.5 7,9 9.5,6 13,10"/>
+        </svg>
+      </button>
+      <input type="file" accept="image/*" bind:this={imageFileInput} onchange={handleImageInputChange} hidden />
     {/if}
 
     {#if toolbarItems.length > 0}
