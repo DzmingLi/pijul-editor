@@ -8,21 +8,31 @@
     files = [],
     activeFile = null,
     defaultExt = '.md',
+    sortable = false,
     onSelect,
     onCreate,
     onDelete,
+    onReorder,
   }: {
     files: FileItem[];
     activeFile: string | null;
     defaultExt?: string;
+    sortable?: boolean;
     onSelect: (path: string) => void;
     onCreate: (path: string) => Promise<void>;
     onDelete?: (path: string) => Promise<void>;
+    onReorder?: (paths: string[]) => Promise<void>;
   } = $props();
 
   let showNewFile = $state(false);
   let newFileName = $state('');
   let creating = $state(false);
+
+  // Drag state
+  let dragIdx = $state<number | null>(null);
+  let dropIdx = $state<number | null>(null);
+
+  let visibleFiles = $derived(files.filter(f => !f.is_dir));
 
   function fileLabel(path: string) {
     return path.replace(/^chapters\//, '');
@@ -46,14 +56,68 @@
     if (!onDelete || !confirm(`确定删除 ${fileLabel(path)}？`)) return;
     try { await onDelete(path); } catch { /* */ }
   }
+
+  function onDragStart(e: DragEvent, idx: number) {
+    if (!sortable || !onReorder) return;
+    dragIdx = idx;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(idx));
+    }
+  }
+
+  function onDragOver(e: DragEvent, idx: number) {
+    if (dragIdx === null) return;
+    e.preventDefault();
+    dropIdx = idx;
+  }
+
+  function onDragLeave() {
+    dropIdx = null;
+  }
+
+  async function onDrop(e: DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx || !onReorder) {
+      dragIdx = null;
+      dropIdx = null;
+      return;
+    }
+    const items = [...visibleFiles];
+    const [moved] = items.splice(dragIdx, 1);
+    items.splice(idx, 0, moved);
+    dragIdx = null;
+    dropIdx = null;
+    try { await onReorder(items.map(f => f.path)); } catch { /* */ }
+  }
+
+  function onDragEnd() {
+    dragIdx = null;
+    dropIdx = null;
+  }
 </script>
 
 <div class="fp">
   <div class="fp-list">
-    {#each files.filter(f => !f.is_dir) as f (f.path)}
+    {#each visibleFiles as f, i (f.path)}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="fp-item" class:active={activeFile === f.path} onclick={() => onSelect(f.path)}>
+      <div
+        class="fp-item"
+        class:active={activeFile === f.path}
+        class:drag-over={dropIdx === i && dragIdx !== i}
+        class:dragging={dragIdx === i}
+        onclick={() => onSelect(f.path)}
+        draggable={sortable && !!onReorder}
+        ondragstart={(e) => onDragStart(e, i)}
+        ondragover={(e) => onDragOver(e, i)}
+        ondragleave={onDragLeave}
+        ondrop={(e) => onDrop(e, i)}
+        ondragend={onDragEnd}
+      >
+        {#if sortable && onReorder}
+          <span class="fp-grip">⠿</span>
+        {/if}
         <span class="fp-name">{fileLabel(f.path)}</span>
         {#if onDelete}
           <button class="fp-delete" onclick={(e) => { e.stopPropagation(); doDelete(f.path); }} title="删除">×</button>
@@ -85,9 +149,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    transition: background 0.1s;
   }
   .fp-item:hover { background: var(--bg-hover, #f0f0f0); }
   .fp-item.active { background: #e8f5e9; color: var(--text-primary, #333); font-weight: 500; }
+  .fp-item.dragging { opacity: 0.4; }
+  .fp-item.drag-over { border-top: 2px solid var(--accent, #5f9b65); padding-top: 4px; }
+  .fp-grip {
+    cursor: grab; color: var(--text-hint, #ccc);
+    font-size: 11px; margin-right: 6px; user-select: none;
+    line-height: 1;
+  }
+  .fp-grip:active { cursor: grabbing; }
   .fp-name {
     flex: 1; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
