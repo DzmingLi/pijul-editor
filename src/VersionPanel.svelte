@@ -1,6 +1,6 @@
 <script lang="ts">
   export interface DiffLine { type: 'add' | 'del' | 'same'; text: string }
-  export interface VersionInfo { id: number; change_hash: string; message: string; created_at: string; unrecordable?: boolean }
+  export interface VersionInfo { id: number; change_hash: string; message: string; author?: string; created_at: string; unrecordable?: boolean }
 
   export interface VersionPanelLabels {
     diff: string;
@@ -124,7 +124,7 @@
           >
             <span class="vp-msg">{v.message}</span>
             <span class="vp-meta">
-              {formatDate(v.created_at)}
+              {#if v.author}<span class="vp-author">{v.author}</span>{/if}
               <code>{v.change_hash.slice(0, 8)}</code>
             </span>
             {#if v.unrecordable && onUnrecord}
@@ -246,6 +246,7 @@
   .vp-msg { display: block; font-size: 12px; color: var(--text-primary, #333); }
   .vp-meta { display: block; font-size: 10px; color: var(--text-hint, #999); margin-top: 2px; }
   .vp-meta code { font-size: 10px; }
+  .vp-author { font-weight: 500; color: var(--text-secondary, #666); margin-right: 4px; }
   .vp-unrecord {
     position: absolute;
     right: 8px;
