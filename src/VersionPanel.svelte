@@ -65,7 +65,9 @@
       loadingDiff = true;
       try {
         selectedDiffLines = await onFetchDiff(v);
-      } catch { /* */ }
+      } catch (e) {
+        console.error('[VersionPanel] onFetchDiff error:', e);
+      }
       loadingDiff = false;
     }
   }
