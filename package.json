@@ -16,6 +16,7 @@
     "./ChannelPanel.svelte": "./src/ChannelPanel.svelte",
     "./VersionPanel.svelte": "./src/VersionPanel.svelte",
     "./FilePanel.svelte": "./src/FilePanel.svelte",
+    "./JsonView.svelte": "./src/JsonView.svelte",
     "./i18n": "./src/i18n/index.ts",
     "./theme.css": "./src/theme.css"
   },
