@@ -1,8 +1,26 @@
 <script lang="ts">
   export interface DiffLine { type: 'add' | 'del' | 'same'; text: string }
   export interface VersionInfo { id: number; change_hash: string; message: string; created_at: string; unrecordable?: boolean }
-  export interface VersionDiff { hunks: { lines: { kind: string; content: string }[] }[] }
-  export interface ChangeLine { kind: string; content: string }
+
+  export interface VersionPanelLabels {
+    diff: string;
+    noChanges: string;
+    history: string;
+    noHistory: string;
+    loading: string;
+    recordPlaceholder: string;
+    record: string;
+  }
+
+  const defaultLabels: VersionPanelLabels = {
+    diff: 'Diff',
+    noChanges: '无修改',
+    history: '历史',
+    noHistory: '暂无记录',
+    loading: '...',
+    recordPlaceholder: 'Record message...',
+    record: 'Record',
+  };
 
   let {
     currentDiffLines = [],
@@ -10,47 +28,45 @@
     loadingHistory = false,
     recording = false,
     onRecord,
-    onSelectVersion,
     onUnrecord,
-    onFetchChangeDetail,
-    selectedVersionId = null,
-    selectedVersionDiff = null,
+    onFetchDiff,
+    labels: userLabels = {},
   }: {
     currentDiffLines: DiffLine[];
     versions: VersionInfo[];
     loadingHistory?: boolean;
     recording?: boolean;
     onRecord: (message: string) => void;
-    onSelectVersion?: (v: VersionInfo) => void;
     onUnrecord?: (v: VersionInfo) => void;
-    onFetchChangeDetail?: (hash: string) => Promise<{ message: string; lines: ChangeLine[] }>;
-    selectedVersionId?: number | null;
-    selectedVersionDiff?: VersionDiff | null;
+    onFetchDiff?: (v: VersionInfo) => Promise<DiffLine[]>;
+    labels?: Partial<VersionPanelLabels>;
   } = $props();
+
+  let labels = $derived({ ...defaultLabels, ...userLabels });
 
   let recordMessage = $state('');
   let addCount = $derived(currentDiffLines.filter(l => l.type === 'add').length);
   let delCount = $derived(currentDiffLines.filter(l => l.type === 'del').length);
-  let selectedChangeLines = $state<ChangeLine[]>([]);
-  let loadingChange = $state(false);
+
+  let selectedId = $state<number | null>(null);
+  let selectedDiffLines = $state<DiffLine[]>([]);
+  let loadingDiff = $state(false);
 
   async function selectVersion(v: VersionInfo) {
-    if (selectedVersionId === v.id) {
-      selectedVersionId = null;
-      selectedChangeLines = [];
+    if (selectedId === v.id) {
+      selectedId = null;
+      selectedDiffLines = [];
       return;
     }
-    selectedVersionId = v.id;
-    selectedChangeLines = [];
-    onSelectVersion?.(v);
+    selectedId = v.id;
+    selectedDiffLines = [];
 
-    if (onFetchChangeDetail) {
-      loadingChange = true;
+    if (onFetchDiff) {
+      loadingDiff = true;
       try {
-        const detail = await onFetchChangeDetail(v.change_hash);
-        selectedChangeLines = detail.lines;
+        selectedDiffLines = await onFetchDiff(v);
       } catch { /* */ }
-      loadingChange = false;
+      loadingDiff = false;
     }
   }
 
@@ -68,7 +84,7 @@
   <!-- Current diff -->
   <div class="vp-section">
     <div class="vp-header">
-      <span>Diff</span>
+      <span>{labels.diff}</span>
       {#if addCount > 0 || delCount > 0}
         <span class="vp-stats">
           <span class="stat-add">+{addCount}</span>
@@ -78,7 +94,7 @@
     </div>
     <div class="vp-diff-content">
       {#if currentDiffLines.filter(l => l.type !== 'same').length === 0}
-        <p class="vp-empty">无修改</p>
+        <p class="vp-empty">{labels.noChanges}</p>
       {:else}
         <pre class="vp-diff">{#each currentDiffLines.filter(l => l.type !== 'same') as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
 {:else}<span class="line-del">-{line.text}</span>
@@ -90,19 +106,19 @@
   <!-- Version history -->
   <div class="vp-section">
     <div class="vp-header">
-      <span>历史</span>
+      <span>{labels.history}</span>
       <span class="vp-count">{versions.length}</span>
     </div>
     <div class="vp-list">
       {#if loadingHistory}
-        <p class="vp-empty">...</p>
+        <p class="vp-empty">{labels.loading}</p>
       {:else if versions.length === 0}
-        <p class="vp-empty">暂无记录</p>
+        <p class="vp-empty">{labels.noHistory}</p>
       {:else}
         {#each versions as v (v.id)}
           <button
             class="vp-item"
-            class:selected={selectedVersionId === v.id}
+            class:selected={selectedId === v.id}
             onclick={() => selectVersion(v)}
           >
             <span class="vp-msg">{v.message}</span>
@@ -118,20 +134,14 @@
       {/if}
     </div>
 
-    {#if loadingChange}
-      <p class="vp-empty">加载中...</p>
-    {:else if selectedChangeLines.length > 0}
+    {#if loadingDiff}
+      <p class="vp-empty">{labels.loading}</p>
+    {:else if selectedDiffLines.length > 0}
       <div class="vp-version-diff">
-        <pre class="vp-diff">{#each selectedChangeLines as line}{#if line.kind === 'add'}<span class="line-add">+{line.content}</span>
-{:else}<span class="line-del">-{line.content}</span>
+        <pre class="vp-diff">{#each selectedDiffLines as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
+{:else if line.type === 'del'}<span class="line-del">-{line.text}</span>
+{:else}<span class="line-ctx"> {line.text}</span>
 {/if}{/each}</pre>
-      </div>
-    {:else if selectedVersionDiff}
-      <div class="vp-version-diff">
-        <pre class="vp-diff">{#each selectedVersionDiff.hunks as hunk}{#each hunk.lines as line}{#if line.kind === 'add'}<span class="line-add">+{line.content}</span>
-{:else if line.kind === 'remove'}<span class="line-del">-{line.content}</span>
-{:else}<span class="line-ctx"> {line.content}</span>
-{/if}{/each}{/each}</pre>
       </div>
     {/if}
   </div>
@@ -141,11 +151,11 @@
     <input
       class="vp-input"
       bind:value={recordMessage}
-      placeholder="Record message..."
+      placeholder={labels.recordPlaceholder}
       onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); doRecord(); } }}
     />
     <button class="vp-btn" onclick={doRecord} disabled={recording}>
-      {recording ? '...' : 'Record'}
+      {recording ? '...' : labels.record}
     </button>
   </div>
 </div>
