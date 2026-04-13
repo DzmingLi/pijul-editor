@@ -104,20 +104,20 @@
 
 <div class="fp">
   <div class="fp-list">
-    {#each visibleFiles as f, i (f.path)}
+    {#each visibleFiles as f, idx (f.path)}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="fp-item"
         class:active={activeFile === f.path}
-        class:drag-over={dropIdx === i && dragIdx !== i}
-        class:dragging={dragIdx === i}
+        class:drag-over={dropIdx === idx && dragIdx !== idx}
+        class:dragging={dragIdx === idx}
         onclick={() => onSelect(f.path)}
         draggable={sortable && !!onReorder}
-        ondragstart={(e) => onDragStart(e, i)}
-        ondragover={(e) => onDragOver(e, i)}
+        ondragstart={(e) => onDragStart(e, idx)}
+        ondragover={(e) => onDragOver(e, idx)}
         ondragleave={onDragLeave}
-        ondrop={(e) => onDrop(e, i)}
+        ondrop={(e) => onDrop(e, idx)}
         ondragend={onDragEnd}
       >
         {#if sortable && onReorder}
