@@ -24,11 +24,21 @@
   // Enable GFM table extension on the markdown-it tokenizer
   const tokenizer = defaultMarkdownParser.tokenizer.enable('table');
 
+  // Strip thead/tbody wrappers from markdown-it output so that
+  // prosemirror-markdown sees tr/th/td as direct children of table.
+  // (ignore:true would skip ALL children including the actual rows.)
+  function stripTableWrappers(md: any) {
+    md.core.ruler.push('strip_thead_tbody', (state: any) => {
+      state.tokens = state.tokens.filter(
+        (tok: any) => !['thead_open','thead_close','tbody_open','tbody_close'].includes(tok.type)
+      );
+    });
+  }
+  tokenizer.use(stripTableWrappers);
+
   const mdParser = new MarkdownParser(mdSchema, tokenizer, {
     ...defaultMarkdownParser.tokens,
     table: { block: 'table' },
-    thead: { ignore: true },     // rows are handled via tr
-    tbody: { ignore: true },
     tr: { block: 'table_row' },
     th: { block: 'table_header' },
     td: { block: 'table_cell' },
