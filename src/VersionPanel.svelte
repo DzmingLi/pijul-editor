@@ -15,7 +15,6 @@
   import { getLocale } from './i18n/index';
 
   let {
-    currentDiffLines = [],
     versions = [],
     loadingHistory = false,
     recording = false,
@@ -25,12 +24,11 @@
     onFetchDiff,
     labels: userLabels = {},
   }: {
-    currentDiffLines: DiffLine[];
     versions: VersionInfo[];
     loadingHistory?: boolean;
     recording?: boolean;
     locale?: string;
-    onRecord: (message: string) => void;
+    onRecord: (message: string) => Promise<VersionInfo | void>;
     onUnrecord?: (v: VersionInfo) => void;
     onFetchDiff?: (v: VersionInfo) => Promise<DiffLine[]>;
     labels?: Partial<VersionPanelLabels>;
@@ -40,8 +38,6 @@
   let labels = $derived({ ...i.version, ...userLabels });
 
   let recordMessage = $state('');
-  let addCount = $derived(currentDiffLines.filter(l => l.type === 'add').length);
-  let delCount = $derived(currentDiffLines.filter(l => l.type === 'del').length);
 
   let selectedId = $state<number | null>(null);
   let selectedDiffLines = $state<DiffLine[]>([]);
@@ -71,9 +67,14 @@
     }
   }
 
-  function doRecord() {
-    onRecord(recordMessage.trim() || 'update');
+  async function doRecord() {
+    const msg = recordMessage.trim() || 'update';
     recordMessage = '';
+    const newVersion = await onRecord(msg);
+    // Auto-expand the new change's diff
+    if (newVersion && onFetchDiff) {
+      await selectVersion(newVersion);
+    }
   }
 
   function formatDate(s: string) {
@@ -82,28 +83,6 @@
 </script>
 
 <div class="vp">
-  <!-- Current diff -->
-  <div class="vp-section">
-    <div class="vp-header">
-      <span>{labels.diff}</span>
-      {#if addCount > 0 || delCount > 0}
-        <span class="vp-stats">
-          <span class="stat-add">+{addCount}</span>
-          <span class="stat-del">-{delCount}</span>
-        </span>
-      {/if}
-    </div>
-    <div class="vp-diff-content">
-      {#if currentDiffLines.filter(l => l.type !== 'same').length === 0}
-        <p class="vp-empty">{labels.noChanges}</p>
-      {:else}
-        <pre class="vp-diff">{#each currentDiffLines.filter(l => l.type !== 'same') as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
-{:else}<span class="line-del">-{line.text}</span>
-{/if}{/each}</pre>
-      {/if}
-    </div>
-  </div>
-
   <!-- Version history -->
   <div class="vp-section">
     <div class="vp-header">
@@ -195,18 +174,11 @@
     position: sticky;
     top: 0;
   }
-  .vp-stats { display: flex; gap: 6px; }
-  .stat-add { color: #1a7f37; }
-  .stat-del { color: #cf222e; }
   .vp-count {
     font-size: 10px;
     background: var(--bg-gray, #eee);
     padding: 1px 5px;
     border-radius: 8px;
-  }
-  .vp-diff-content {
-    max-height: 200px;
-    overflow-y: auto;
   }
   .vp-empty {
     padding: 12px;

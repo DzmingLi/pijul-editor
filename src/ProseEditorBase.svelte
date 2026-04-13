@@ -269,8 +269,11 @@
       ...headingSys.plugins,
     ];
 
-    const initialState = EditorState.create({ doc: parse(value), plugins: allPlugins });
-    lastSyncedValue = value;
+    const initialDoc = parse(value);
+    const initialState = EditorState.create({ doc: initialDoc, plugins: allPlugins });
+    // Set lastSyncedValue to the serialized form so that the serialize roundtrip
+    // normalization (e.g. trailing newline) does NOT trigger a value update.
+    lastSyncedValue = serialize(initialDoc);
 
     view = new EditorView(container, {
       state: initialState,
