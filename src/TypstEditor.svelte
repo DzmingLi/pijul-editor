@@ -176,18 +176,26 @@
 
         if (line.trim() === '---') { blocks.push(typstSchema.nodes.horizontal_rule.create()); i++; continue; }
 
-        // #table(columns: N, [cell1], [cell2], ...)
-        const tm = line.match(/^#table\(columns:\s*(\d+)/);
-        if (tm) {
-          const cols = parseInt(tm[1], 10);
+        // #table(columns: N, ...) or #table(\n  columns: (...), ...)
+        if (/^#table\(/.test(line)) {
           // Collect all lines until closing )
           let tableText = line;
-          while (i + 1 < lines.length && !tableText.trimEnd().endsWith(')')) {
+          while (!tableText.trimEnd().endsWith(')') && i + 1 < lines.length) {
             i++;
             tableText += '\n' + lines[i];
           }
           i++;
-          // Extract [content] cells
+          // Determine column count: either a plain number or a tuple like (4cm, 1fr)
+          let cols = 0;
+          const colNumM = tableText.match(/columns:\s*(\d+)/);
+          if (colNumM) {
+            cols = parseInt(colNumM[1], 10);
+          } else {
+            const colTupleM = tableText.match(/columns:\s*\(([^)]+)\)/);
+            if (colTupleM) cols = colTupleM[1].split(',').length;
+          }
+          if (cols < 1) cols = 1;
+          // Extract [content] cells, skipping table.header(...) wrapper
           const cellMatches = [...tableText.matchAll(/\[([^\]]*)\]/g)];
           const cellTexts = cellMatches.map(m => m[1].replace(/\\]/g, ']'));
           const rowCount = Math.max(1, Math.ceil(cellTexts.length / cols));
@@ -216,7 +224,12 @@
           if (/^[+-] /.test(l) && paraLines.length > 0) break;
           paraLines.push(l); i++;
         }
-        if (paraLines.length) blocks.push(typstSchema.nodes.paragraph.create(null, parseInline(paraLines.join('\n'))));
+        if (paraLines.length) {
+          blocks.push(typstSchema.nodes.paragraph.create(null, parseInline(paraLines.join('\n'))));
+        } else {
+          // Safety: skip unrecognized lines to prevent infinite loops
+          i++;
+        }
       }
       if (!blocks.length) blocks.push(typstSchema.nodes.paragraph.create());
       return typstSchema.nodes.doc.create(null, blocks);
