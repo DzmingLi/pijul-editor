@@ -40,6 +40,7 @@
   let recordMessage = $state('');
 
   let selectedId = $state<number | null>(null);
+  let selectedVersion = $derived(versions.find(v => v.id === selectedId) ?? null);
   let selectedDiffLines = $state<DiffLine[]>([]);
   let loadingDiff = $state(false);
   let diffError = $state('');
@@ -114,26 +115,6 @@
       {/if}
     </div>
 
-    {#if selectedId !== null}
-      <div class="vp-version-diff">
-        <div class="vp-diff-header">
-          <span>{i.version.changeDetails}</span>
-          <button class="vp-diff-close" onclick={() => { selectedId = null; selectedDiffLines = []; diffError = ''; }}>×</button>
-        </div>
-        {#if loadingDiff}
-          <p class="vp-empty">{labels.loading}</p>
-        {:else if diffError}
-          <p class="vp-empty vp-error">{diffError}</p>
-        {:else if selectedDiffLines.length > 0}
-          <pre class="vp-diff">{#each selectedDiffLines as line}{#if line.type === 'add'}<span class="line-add">+{line.text}</span>
-{:else if line.type === 'del'}<span class="line-del">-{line.text}</span>
-{:else}<span class="line-ctx"> {line.text}</span>
-{/if}{/each}</pre>
-        {:else}
-          <p class="vp-empty">{i.version.noContentLines}</p>
-        {/if}
-      </div>
-    {/if}
   </div>
 
   <!-- Record -->
@@ -149,6 +130,39 @@
     </button>
   </div>
 </div>
+
+{#if selectedId !== null}
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="diff-overlay" onclick={() => { selectedId = null; selectedDiffLines = []; diffError = ''; }}>
+  <div class="diff-modal" onclick={(e) => e.stopPropagation()}>
+    <div class="diff-modal-header">
+      <span>{i.version.changeDetails}</span>
+      <span class="diff-modal-hash"><code>{selectedVersion?.change_hash.slice(0, 12)}</code></span>
+      <button class="diff-modal-close" onclick={() => { selectedId = null; selectedDiffLines = []; diffError = ''; }}>×</button>
+    </div>
+    <div class="diff-modal-body">
+      {#if loadingDiff}
+        <p class="vp-empty">{labels.loading}</p>
+      {:else if diffError}
+        <p class="vp-empty vp-error">{diffError}</p>
+      {:else if selectedDiffLines.length > 0}
+        {#each selectedDiffLines as line}
+          {#if line.type === 'add'}
+            <div class="diff-line diff-add"><code>+{line.text}</code></div>
+          {:else if line.type === 'del'}
+            <div class="diff-line diff-del"><code>-{line.text}</code></div>
+          {:else}
+            <div class="diff-line diff-ctx"><code> {line.text}</code></div>
+          {/if}
+        {/each}
+      {:else}
+        <p class="vp-empty">{i.version.noContentLines}</p>
+      {/if}
+    </div>
+  </div>
+</div>
+{/if}
 
 <style>
   .vp {
@@ -232,35 +246,60 @@
   }
   .vp-unrecord:hover { color: #cf222e; }
 
-  .vp-version-diff {
-    max-height: 300px;
-    overflow-y: auto;
-    border-top: 1px solid var(--border, #eee);
-    background: var(--bg-white, #fff);
-  }
-  .vp-diff-header {
+  .vp-error { color: #cf222e; }
+
+  /* Diff modal overlay */
+  .diff-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-hint, #999);
-    background: var(--bg-hover, #f8f8f8);
-    position: sticky;
-    top: 0;
+    justify-content: center;
+    z-index: 1000;
   }
-  .vp-diff-close {
+  .diff-modal {
+    background: var(--bg-white, #fff);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    width: min(720px, 90vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .diff-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border, #e5e5e5);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .diff-modal-hash { color: var(--text-hint, #999); font-size: 11px; }
+  .diff-modal-close {
+    margin-left: auto;
     background: none;
     border: none;
     color: var(--text-hint, #999);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 18px;
     padding: 0 4px;
     line-height: 1;
   }
-  .vp-diff-close:hover { color: #cf222e; }
-  .vp-error { color: #cf222e; }
+  .diff-modal-close:hover { color: #cf222e; }
+  .diff-modal-body {
+    overflow-y: auto;
+    padding: 8px 0;
+    font-family: var(--font-mono, monospace);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .diff-line { padding: 0 16px; }
+  .diff-line code { white-space: pre-wrap; word-break: break-all; }
+  .diff-add { color: #155724; background: #d4edda; }
+  .diff-del { color: #721c24; background: #f8d7da; }
+  .diff-ctx { color: var(--text-hint, #999); }
 
   .vp-record {
     display: flex;
