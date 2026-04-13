@@ -195,9 +195,11 @@
             if (colTupleM) cols = colTupleM[1].split(',').length;
           }
           if (cols < 1) cols = 1;
-          // Extract [content] cells, skipping table.header(...) wrapper
-          const cellMatches = [...tableText.matchAll(/\[([^\]]*)\]/g)];
-          const cellTexts = cellMatches.map(m => m[1].replace(/\\]/g, ']'));
+          // Extract cells: both [bracket] and "quoted" content
+          const cellTexts: string[] = [];
+          for (const m of tableText.matchAll(/\[([^\]]*)\]|"([^"]*)"/g)) {
+            cellTexts.push((m[1] ?? m[2] ?? '').replace(/\\]/g, ']'));
+          }
           const rowCount = Math.max(1, Math.ceil(cellTexts.length / cols));
           const rows: PNode[] = [];
           for (let r = 0; r < rowCount; r++) {
