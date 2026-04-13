@@ -16,7 +16,7 @@
   const baseNodes = addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block');
   export const mdSchema = new Schema({
     nodes: (baseNodes as any)
-      .append(tableNodes({ tableGroup: 'block', cellContent: 'block+', cellAttributes: {} }))
+      .append(tableNodes({ tableGroup: 'block', cellContent: 'inline*', cellAttributes: {} }))
       .append(mathNodeSpecs),
     marks: basicSchema.spec.marks,
   });
@@ -47,6 +47,17 @@
   const mdSerializer = new MarkdownSerializer(
     {
       ...defaultMarkdownSerializer.nodes,
+      // Use '-' for bullet lists (not '*') and don't add blank lines between items
+      bullet_list(state, node) {
+        state.renderList(node, '  ', () => '- ');
+      },
+      ordered_list(state, node) {
+        const start = node.attrs.order || 1;
+        state.renderList(node, '  ', (i: number) => `${start + i}. `);
+      },
+      list_item(state, node) {
+        state.renderContent(node);
+      },
       math_inline(state, node) {
         state.write(`$${node.attrs.formula}$`);
       },
@@ -99,7 +110,9 @@
   }
 
   export function serializeMd(doc: PNode): string {
-    return mdSerializer.serialize(doc);
+    const out = mdSerializer.serialize(doc);
+    // Ensure trailing newline (standard for text files)
+    return out.endsWith('\n') ? out : out + '\n';
   }
 
   const mdMathPlugins = [mathFocusPlugin, createMathKeyPlugin(mdSchema)];
