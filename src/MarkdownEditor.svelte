@@ -9,6 +9,11 @@
     mathNodeSpecs, mathFocusPlugin, createMathKeyPlugin,
     createMathNodeViews, createMathToolbarItems,
   } from './mathSupport';
+  import {
+    admonitionNodeSpec, markdownItAdmonition, admonitionParserTokens,
+    serializeAdmonition, createAdmonitionNodeView, createAdmonitionToolbarItem,
+    createAdmonitionKeyPlugin,
+  } from './admonitionSupport';
 
   // ── Module-level singletons ──────────────────────────────────────────────
   // Constructed once, shared across all MarkdownEditor instances.
@@ -17,7 +22,8 @@
   export const mdSchema = new Schema({
     nodes: (baseNodes as any)
       .append(tableNodes({ tableGroup: 'block', cellContent: 'inline*', cellAttributes: {} }))
-      .append(mathNodeSpecs),
+      .append(mathNodeSpecs)
+      .append({ admonition: admonitionNodeSpec }),
     marks: basicSchema.spec.marks,
   });
 
@@ -35,9 +41,11 @@
     });
   }
   tokenizer.use(stripTableWrappers);
+  tokenizer.use(markdownItAdmonition);
 
   const mdParser = new MarkdownParser(mdSchema, tokenizer, {
     ...defaultMarkdownParser.tokens,
+    ...admonitionParserTokens,
     table: { block: 'table' },
     tr: { block: 'table_row' },
     th: { block: 'table_header' },
@@ -86,6 +94,7 @@
       table_row()    {},
       table_cell()   {},
       table_header() {},
+      admonition: serializeAdmonition,
     },
     defaultMarkdownSerializer.marks,
   );
@@ -115,7 +124,7 @@
     return out.endsWith('\n') ? out : out + '\n';
   }
 
-  const mdMathPlugins = [mathFocusPlugin, createMathKeyPlugin(mdSchema)];
+  const mdMathPlugins = [mathFocusPlugin, createMathKeyPlugin(mdSchema), createAdmonitionKeyPlugin(mdSchema)];
 </script>
 
 <script lang="ts">
@@ -130,7 +139,9 @@
 
   let i = $derived(getLocale(locale));
   const mathNodeViews = createMathNodeViews(mdSchema, renderEndpoint, i.math.placeholder);
+  const admNodeViews = createAdmonitionNodeView(mdSchema);
   const mathToolbar = createMathToolbarItems(mdSchema, i.toolbar);
+  const admToolbar = createAdmonitionToolbarItem(mdSchema, i.toolbar.admonition ?? 'Admonition');
 </script>
 
 <ProseEditorBase
@@ -139,11 +150,11 @@
   {fillHeight}
   schema={mdSchema}
   plugins={mdMathPlugins}
-  nodeViews={mathNodeViews}
+  nodeViews={{ ...mathNodeViews, admonition: admNodeViews }}
   serialize={serializeMd}
   parse={parseMd}
   headingPrefixes={['# ', '## ', '### ']}
-  toolbarItems={mathToolbar}
+  toolbarItems={[...mathToolbar, admToolbar]}
   {locale}
   {onImageUpload}
 />
@@ -212,4 +223,89 @@
     font-family: var(--font-mono, monospace) !important;
     font-size: 0.9em !important;
   }
+
+  /* ── Admonition NodeView ── */
+  :global(.adm-wrap) {
+    border-left: 3px solid #448aff;
+    border-radius: 0 4px 4px 0;
+    margin: 1em 0;
+    background: rgba(0, 0, 0, 0.015);
+  }
+  :global(.adm-header) {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 0 4px 0 0;
+  }
+  :global(.adm-type-select) {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 4px;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 3px;
+    background: var(--bg-white, white);
+    color: inherit;
+    cursor: pointer;
+    font-family: var(--font-sans, sans-serif);
+  }
+  :global(.adm-title-input) {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font-family: var(--font-sans, sans-serif);
+    outline: none;
+    min-width: 0;
+  }
+  :global(.adm-title-input:focus) {
+    border-color: var(--border, #ddd);
+    background: var(--bg-white, white);
+  }
+  :global(.adm-title-input::placeholder) {
+    color: var(--text-hint, #aaa);
+    font-weight: 400;
+  }
+  :global(.adm-collapse-btn) {
+    font-family: var(--font-mono, monospace);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border: 1px solid var(--border, #ddd);
+    border-radius: 3px;
+    background: var(--bg-white, white);
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  :global(.adm-collapse-btn:hover) {
+    border-color: var(--accent, #4a7);
+    color: var(--accent, #4a7);
+  }
+  :global(.adm-body) {
+    padding: 0.5em 1em 0.75em;
+  }
+  :global(.adm-body > p:first-child) { margin-top: 0; }
+  :global(.adm-body > p:last-child) { margin-bottom: 0; }
+
+  /* Admonition type colors in editor */
+  :global(.adm-wrap[data-adm-type="note"])     { border-left-color: #448aff; }
+  :global(.adm-wrap[data-adm-type="abstract"]) { border-left-color: #00b0ff; }
+  :global(.adm-wrap[data-adm-type="info"])     { border-left-color: #00b8d4; }
+  :global(.adm-wrap[data-adm-type="tip"])      { border-left-color: #00bfa5; }
+  :global(.adm-wrap[data-adm-type="success"])  { border-left-color: #00c853; }
+  :global(.adm-wrap[data-adm-type="question"]) { border-left-color: #64dd17; }
+  :global(.adm-wrap[data-adm-type="warning"])  { border-left-color: #ff9100; }
+  :global(.adm-wrap[data-adm-type="failure"])  { border-left-color: #ff5252; }
+  :global(.adm-wrap[data-adm-type="danger"])   { border-left-color: #ff1744; }
+  :global(.adm-wrap[data-adm-type="bug"])      { border-left-color: #f50057; }
+  :global(.adm-wrap[data-adm-type="example"])  { border-left-color: #7c4dff; }
+  :global(.adm-wrap[data-adm-type="quote"])    { border-left-color: #9e9e9e; }
 </style>
