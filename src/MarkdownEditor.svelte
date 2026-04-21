@@ -14,6 +14,8 @@
     serializeAdmonition, createAdmonitionNodeView, createAdmonitionToolbarItem,
     createAdmonitionKeyPlugin,
   } from './admonitionSupport';
+  import { linkInputRule, linkPopoverPlugin } from './linkSupport';
+  import { inputRules } from 'prosemirror-inputrules';
 
   // ── Module-level singletons ──────────────────────────────────────────────
   // Constructed once, shared across all MarkdownEditor instances.
@@ -124,7 +126,21 @@
     return out.endsWith('\n') ? out : out + '\n';
   }
 
-  const mdMathPlugins = [mathFocusPlugin, createMathKeyPlugin(mdSchema), createAdmonitionKeyPlugin(mdSchema)];
+  // Input rules specific to markdown (auto-convert `[text](url)` to a
+  // link mark before the serializer would escape the brackets).
+  const mdLinkInputRule = linkInputRule(mdSchema);
+  const mdInputRules = mdLinkInputRule
+    ? inputRules({ rules: [mdLinkInputRule] })
+    : null;
+  const mdLinkPopover = linkPopoverPlugin(mdSchema);
+
+  const mdMathPlugins = [
+    mathFocusPlugin,
+    createMathKeyPlugin(mdSchema),
+    createAdmonitionKeyPlugin(mdSchema),
+    ...(mdInputRules ? [mdInputRules] : []),
+    ...(mdLinkPopover ? [mdLinkPopover] : []),
+  ];
 </script>
 
 <script lang="ts">
@@ -160,6 +176,56 @@
 />
 
 <style>
+  /* ── Link edit popover ── */
+  :global(.pm-link-popover) {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--bg-white, #fff);
+    border: 1px solid var(--border, #d4d4d4);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-size: 12px;
+    max-width: min(420px, 90vw);
+  }
+  :global(.pm-link-popover-input) {
+    flex: 1;
+    min-width: 160px;
+    padding: 3px 6px;
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    border: 1px solid var(--border, #d4d4d4);
+    border-radius: 3px;
+    background: var(--bg-white, #fff);
+    color: var(--text-primary, #111);
+    outline: none;
+  }
+  :global(.pm-link-popover-input:focus) {
+    border-color: var(--accent, #5f9b65);
+  }
+  :global(.pm-link-popover-open),
+  :global(.pm-link-popover-unlink) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: none;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--text-secondary, #555);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  :global(.pm-link-popover-open:hover),
+  :global(.pm-link-popover-unlink:hover) {
+    background: var(--bg-hover, #f0f0f0);
+    color: var(--accent, #5f9b65);
+  }
+  :global(.pm-link-popover-unlink:hover) { color: #c00; }
+
   /* ── Math node wrapper ── */
   :global(.typst-math-inline-view) {
     display: inline-block;
