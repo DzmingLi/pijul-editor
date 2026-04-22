@@ -30,33 +30,61 @@
   ];
 
   // ── Serializer: doc → Typst ──────────────────────────────────────────────────
-  function serializeInline(node: PNode): string {
-    if (node.type.name === 'math_inline') return `$${node.attrs.formula}$`;
-    if (node.isText) {
-      let s = node.text ?? '';
-      const marks = node.marks.map(m => m.type.name);
-      if (marks.includes('strong')) s = `*${s}*`;
-      if (marks.includes('em'))     s = `_${s}_`;
-      if (marks.includes('code'))   s = '`' + s + '`';
-      return s;
-    }
-    let out = ''; node.forEach(c => { out += serializeInline(c); }); return out;
+  // Serializer is mark-aware: it groups consecutive children that share a
+  // mark-set under a single delimiter pair, and keeps marks open across
+  // math_inline nodes (which have `marks: ''` in the schema). So
+  //   [strong "A "][math "x"][strong " B"]   → *A $x$ B*
+  // rather than the ugly *A *$x$* B*.
+  const MARK_DELIM: Record<string, string> = { strong: '*', em: '_', code: '`' };
+  function markNamesOf(node: PNode): string[] {
+    return node.marks.map(m => m.type.name).filter(n => n in MARK_DELIM);
+  }
+  function serializeInlines(parent: PNode): string {
+    let out = '';
+    let active: string[] = [];
+    const close = (arr: string[]) => {
+      for (let i = arr.length - 1; i >= 0; i--) out += MARK_DELIM[arr[i]] ?? '';
+    };
+    const open = (arr: string[]) => {
+      for (const m of arr) out += MARK_DELIM[m] ?? '';
+    };
+    parent.forEach(child => {
+      if (child.type.name === 'math_inline') {
+        // Inherit surrounding marks — don't touch `active`.
+        out += `$${child.attrs.formula}$`;
+        return;
+      }
+      if (child.isText) {
+        const wanted = markNamesOf(child);
+        let common = 0;
+        while (common < active.length && common < wanted.length && active[common] === wanted[common]) common++;
+        close(active.slice(common));
+        open(wanted.slice(common));
+        active = wanted;
+        out += child.text ?? '';
+        return;
+      }
+      // Unknown inline (rare) — flush marks, recurse.
+      close(active); active = [];
+      out += serializeInlines(child);
+    });
+    close(active);
+    return out;
   }
 
   function serializeBlock(node: PNode): string {
     switch (node.type.name) {
       case 'paragraph': {
-        let s = ''; node.forEach(c => { s += serializeInline(c); }); return s + '\n';
+        return serializeInlines(node) + '\n';
       }
       case 'heading': {
-        let s = ''; node.forEach(c => { s += serializeInline(c); });
-        return '='.repeat(node.attrs.level) + ' ' + s + '\n';
+        return '='.repeat(node.attrs.level) + ' ' + serializeInlines(node) + '\n';
       }
       case 'bullet_list': {
         let out = '';
         node.forEach(item => {
           let s = '';
-          item.forEach(c => { if (c.type.name === 'paragraph') c.forEach(i => { s += serializeInline(i); }); });
+          item.forEach(c => { if (c.type.name === 'paragraph') s += serializeInlines(c); });
           out += `- ${s}\n`;
         });
         return out;
@@ -65,14 +93,14 @@
         let out = '';
         node.forEach(item => {
           let s = '';
-          item.forEach(c => { if (c.type.name === 'paragraph') c.forEach(i => { s += serializeInline(i); }); });
+          item.forEach(c => { if (c.type.name === 'paragraph') s += serializeInlines(c); });
           out += `+ ${s}\n`;
         });
         return out;
       }
       case 'blockquote': {
         let s = '';
-        node.forEach(c => { if (c.type.name === 'paragraph') c.forEach(i => { s += serializeInline(i); }); });
+        node.forEach(c => { if (c.type.name === 'paragraph') s += serializeInlines(c); });
         return `#quote[${s}]\n`;
       }
       case 'code_block':      return '```\n' + node.textContent + '\n```\n';
@@ -107,19 +135,34 @@
     return typstSchema.nodes.math_block.create(null, formula ? [typstSchema.text(formula)] : []);
   }
 
-  function parseInline(text: string): PNode[] {
+  // Parse inline Typst syntax. Recurses into *...* / _..._ so that
+  // nested math like `*相位差为 $2 pi$ 的距离*` surfaces the math as a
+  // math_inline node (marks:'' — the strong mark stays on the surrounding
+  // text only). Without recursion the whole bold body is one plain text
+  // node and `$...$` is rendered as literal characters.
+  function parseInline(text: string, extraMarks: readonly any[] = []): PNode[] {
     const nodes: PNode[] = [];
     let i = 0, plain = '';
-    const flush = () => { if (plain) { nodes.push(typstSchema.text(plain)); plain = ''; } };
+    const textMarks = extraMarks.length ? extraMarks.slice() : undefined;
+    const flush = () => { if (plain) { nodes.push(typstSchema.text(plain, textMarks)); plain = ''; } };
     while (i < text.length) {
       const rest = text.slice(i);
       const mathM = rest.match(/^\$([^$\n]+)\$/);
       if (mathM) { flush(); nodes.push(mathInline(mathM[1])); i += mathM[0].length; continue; }
       const boldM = rest.match(/^\*([^*\n]+)\*/);
-      if (boldM) { flush(); nodes.push(typstSchema.text(boldM[1], [typstSchema.marks.strong.create()])); i += boldM[0].length; continue; }
+      if (boldM) {
+        flush();
+        nodes.push(...parseInline(boldM[1], [...extraMarks, typstSchema.marks.strong.create()]));
+        i += boldM[0].length; continue;
+      }
       const emM = rest.match(/^_([^_\n]+)_/);
-      if (emM) { flush(); nodes.push(typstSchema.text(emM[1], [typstSchema.marks.em.create()])); i += emM[0].length; continue; }
+      if (emM) {
+        flush();
+        nodes.push(...parseInline(emM[1], [...extraMarks, typstSchema.marks.em.create()]));
+        i += emM[0].length; continue;
+      }
       const codeM = rest.match(/^`([^`\n]+)`/);
+      // code mark excludes other marks in basicSchema — don't inherit extraMarks.
       if (codeM) { flush(); nodes.push(typstSchema.text(codeM[1], [typstSchema.marks.code.create()])); i += codeM[0].length; continue; }
       plain += text[i++];
     }

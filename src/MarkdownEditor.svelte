@@ -15,22 +15,33 @@
     createAdmonitionKeyPlugin,
   } from './admonitionSupport';
   import { linkInputRule, linkPopoverPlugin } from './linkSupport';
+  import { markInputRules } from './markInputRules';
   import { inputRules } from 'prosemirror-inputrules';
 
   // ── Module-level singletons ──────────────────────────────────────────────
   // Constructed once, shared across all MarkdownEditor instances.
 
   const baseNodes = addListNodes(basicSchema.spec.nodes, 'paragraph block*', 'block');
+  // GFM strikethrough — basicSchema doesn't ship this mark, so we append it.
+  const strikethroughMark = {
+    parseDOM: [
+      { tag: 's' },
+      { tag: 'del' },
+      { tag: 'strike' },
+      { style: 'text-decoration=line-through' },
+    ],
+    toDOM(): any { return ['s', 0]; },
+  };
   export const mdSchema = new Schema({
     nodes: (baseNodes as any)
       .append(tableNodes({ tableGroup: 'block', cellContent: 'inline*', cellAttributes: {} }))
       .append(mathNodeSpecs)
       .append({ admonition: admonitionNodeSpec }),
-    marks: basicSchema.spec.marks,
+    marks: (basicSchema.spec.marks as any).addToEnd('strikethrough', strikethroughMark),
   });
 
-  // Enable GFM table extension on the markdown-it tokenizer
-  const tokenizer = defaultMarkdownParser.tokenizer.enable('table');
+  // Enable GFM table + strikethrough extensions on the markdown-it tokenizer
+  const tokenizer = defaultMarkdownParser.tokenizer.enable(['table', 'strikethrough']);
 
   // Strip thead/tbody wrappers from markdown-it output so that
   // prosemirror-markdown sees tr/th/td as direct children of table.
@@ -52,6 +63,7 @@
     tr: { block: 'table_row' },
     th: { block: 'table_header' },
     td: { block: 'table_cell' },
+    s: { mark: 'strikethrough' },
   });
 
   const mdSerializer = new MarkdownSerializer(
@@ -98,7 +110,10 @@
       table_header() {},
       admonition: serializeAdmonition,
     },
-    defaultMarkdownSerializer.marks,
+    {
+      ...defaultMarkdownSerializer.marks,
+      strikethrough: { open: '~~', close: '~~', mixable: true, expelEnclosingWhitespace: true },
+    },
   );
 
   // ── Parse: markdown → doc ──────────────────────────────────────────────────
@@ -126,11 +141,16 @@
     return out.endsWith('\n') ? out : out + '\n';
   }
 
-  // Input rules specific to markdown (auto-convert `[text](url)` to a
-  // link mark before the serializer would escape the brackets).
+  // Input rules specific to markdown: auto-convert `[text](url)` / `**x**`
+  // / `*x*` / `_x_` / `` `x` `` to the corresponding link or mark before
+  // the serializer would escape the delimiters.
   const mdLinkInputRule = linkInputRule(mdSchema);
-  const mdInputRules = mdLinkInputRule
-    ? inputRules({ rules: [mdLinkInputRule] })
+  const mdAllInputRules = [
+    ...(mdLinkInputRule ? [mdLinkInputRule] : []),
+    ...markInputRules(mdSchema),
+  ];
+  const mdInputRules = mdAllInputRules.length
+    ? inputRules({ rules: mdAllInputRules })
     : null;
   const mdLinkPopover = linkPopoverPlugin(mdSchema);
 
