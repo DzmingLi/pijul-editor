@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
   export interface DiffLine { type: 'add' | 'del' | 'same'; text: string }
   export interface VersionInfo { id: number; change_hash: string; message: string; author?: string; created_at: string; unrecordable?: boolean }
 
@@ -11,9 +11,15 @@
     recordPlaceholder: string;
     record: string;
   }
+</script>
 
+<script lang="ts" generics="V extends VersionInfo">
   import { getLocale } from './i18n/index';
 
+  // Generic `V extends VersionInfo` so consumers can pass richer version
+  // rows (e.g. NightBoat's `ArticleVersionInfo` with `article_uri` /
+  // `editor_did`) and still receive the full shape in their callbacks —
+  // TypeScript's contravariance would otherwise reject the richer callback.
   let {
     versions = [],
     loadingHistory = false,
@@ -24,13 +30,13 @@
     onFetchDiff,
     labels: userLabels = {},
   }: {
-    versions: VersionInfo[];
+    versions: V[];
     loadingHistory?: boolean;
     recording?: boolean;
     locale?: string;
-    onRecord: (message: string) => Promise<VersionInfo | void>;
-    onUnrecord?: (v: VersionInfo) => void;
-    onFetchDiff?: (v: VersionInfo) => Promise<DiffLine[]>;
+    onRecord: (message: string) => Promise<V | void>;
+    onUnrecord?: (v: V) => void;
+    onFetchDiff?: (v: V) => Promise<DiffLine[]>;
     labels?: Partial<VersionPanelLabels>;
   } = $props();
 
@@ -45,7 +51,7 @@
   let loadingDiff = $state(false);
   let diffError = $state('');
 
-  async function selectVersion(v: VersionInfo) {
+  async function selectVersion(v: V) {
     if (selectedId === v.id) {
       selectedId = null;
       selectedDiffLines = [];
