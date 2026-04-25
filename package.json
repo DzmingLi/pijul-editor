@@ -1,7 +1,7 @@
 {
-  "name": "pijul-editor",
+  "name": "nbt-editor",
   "version": "0.1.0",
-  "description": "WYSIWYG collaborative document editor components (Svelte 5 + ProseMirror + Pijul channels)",
+  "description": "WYSIWYG editor components for NightBoat (Svelte 5 + ProseMirror)",
   "type": "module",
   "svelte": "./src/index.js",
   "main": "./src/index.js",
@@ -13,8 +13,6 @@
     "./ProseEditorBase.svelte": "./src/ProseEditorBase.svelte",
     "./TypstEditor.svelte": "./src/TypstEditor.svelte",
     "./MarkdownEditor.svelte": "./src/MarkdownEditor.svelte",
-    "./ChannelPanel.svelte": "./src/ChannelPanel.svelte",
-    "./VersionPanel.svelte": "./src/VersionPanel.svelte",
     "./FilePanel.svelte": "./src/FilePanel.svelte",
     "./JsonView.svelte": "./src/JsonView.svelte",
     "./i18n": "./src/i18n/index.ts",
